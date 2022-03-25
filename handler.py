@@ -32,7 +32,7 @@ class TileAsciiMap(Enum):
 TileMap = ["万", "筒", "索", "东", "南", "西", "北", "白", "发", "中"]
 
 
-HandResult = namedtuple("HandResult", "tiles win_tile tsumo result hand_index")
+HandResult = namedtuple("HandResult", "tiles win_tile tsumo result raw hand_index")
 
 
 async def get_hand(hand_index=None, **kwargs) -> HandResult:
@@ -41,11 +41,11 @@ async def get_hand(hand_index=None, **kwargs) -> HandResult:
     hand_list = linecache.getlines(get_path("hands.txt"))  # 读取手牌列表
     hand_index = hand_index or random.randint(0, len(hand_list))  # 指定或者随机一组手牌
     hand_raw = hand_list[hand_index].strip()[:-3]
-
+    raw = hand_raw.replace("+", "")
     tsumo = hand_raw[26] == "+"  # 是否为自摸
     last_tile = (hand_raw[26:28], hand_raw[27:29])[tsumo]  # 和牌
 
-    tiles = TC.one_line_string_to_136_array(hand_raw.replace("+", ""))
+    tiles = TC.one_line_string_to_136_array(raw)
     win_tile = TC.one_line_string_to_136_array(last_tile)[0]
 
     result = calculator.estimate_hand_value(
@@ -57,7 +57,7 @@ async def get_hand(hand_index=None, **kwargs) -> HandResult:
 
     tiles = TC.one_line_string_to_136_array(hand_raw[:26])
 
-    return HandResult(tiles, last_tile, tsumo, result, hand_index)
+    return HandResult(tiles, last_tile, tsumo, result, raw, hand_index)
 
 
 UserState = namedtuple("UserState", "hit_count")
@@ -135,7 +135,7 @@ class HandGuess:
         return f"恭喜你, 猜对了, 积分增加 {points} 点, 当前积分 {user.points}"
 
     async def guesses_handler(self, msg: str):
-        msg = msg.strip().replace(' ', '')
+        msg = msg.strip().replace(" ", "")
         # pass不合法的信息
         if re.search(f"[^\dmpszh{''.join(TileMap)}]", msg):
             return dict(error=True, msg="")
@@ -193,7 +193,7 @@ class HandGuess:
         ascii_tile = TC.to_one_line_string([win_tile])
         if msg_win_tile == self.status.hand.win_tile:
             easy_paste(wind_img, blue.tile(ascii_tile), pos)
-        elif tile in self.status.hand.tiles:
+        elif win_tile in self.status.hand.tiles:
             # 如果存在
             easy_paste(wind_img, orange.tile(ascii_tile), pos)
         else:
