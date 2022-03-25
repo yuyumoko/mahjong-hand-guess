@@ -7,7 +7,7 @@ from enum import Enum
 from mahjong.hand_calculating.hand import HandCalculator
 from mahjong.hand_calculating.hand_config import HandConfig
 from mahjong.tile import TilesConverter as TC
-from nonebot import get_bot
+from nonebot import get_bot, MessageSegment
 from PIL import Image
 
 from .imghandler import draw_text_by_line, easy_paste, get_font
@@ -87,7 +87,12 @@ class HandGuess:
         HandGuessProcess[self.group] = GroupState(False, None, {})
 
     async def timeout(self):
-        await get_bot().send_group_msg(group_id=self.group, message="游戏已超时, 请重新开始")
+        bot = get_bot()
+        await bot.send_group_msg(group_id=self.group, message="游戏已超时, 请重新开始")
+        ans = await self.guesses_handler("", only_answer=True)
+        await bot.send_group_msg(
+            group_id=self.group, message=MessageSegment.image(ans["img"])
+        )
         self.reset_game()
 
     async def start(self):
@@ -134,7 +139,9 @@ class HandGuess:
         user.add_points(points)
         return f"恭喜你, 猜对了, 积分增加 {points} 点, 当前积分 {user.points}"
 
-    async def guesses_handler(self, msg: str):
+    async def guesses_handler(self, msg: str, only_answer=False):
+        msg = (msg, self.status.hand.raw)[only_answer]
+
         msg = msg.strip().replace(" ", "")
         # pass不合法的信息
         if re.search(f"[^\dmpszh{''.join(TileMap)}]", msg):
@@ -217,10 +224,12 @@ class HandGuess:
 
         background = Image.new("RGB", (1200, 400), "#EEEEEE")
 
-        last = self.MAX_GUESS - self.status.users[self.qq].hit_count - 1
-        draw_text_by_line(
-            background, (26.5, 25), f"剩余{last}回", get_font(40), "#475463", 255
-        )
+        if not only_answer:
+            last = self.MAX_GUESS - self.status.users[self.qq].hit_count - 1
+            draw_text_by_line(
+                background, (26.5, 25), f"剩余{last}回", get_font(40), "#475463", 255
+            )
+
         draw_text_by_line(
             background, (403.5, 25), tip, get_font(40), "#475463", 800, True
         )
@@ -238,9 +247,10 @@ class HandGuess:
         easy_paste(background, wind_img.convert("RGBA"), (13 * 80 + 50, 226))
 
         ret_msg = ""
-        if self.is_win(current_tiles + [win_tile]):
-            ret_msg = self.win_game(status_cost)
-        else:
-            self.inc_user_count()
+        if not only_answer:
+            if self.is_win(current_tiles + [win_tile]):
+                ret_msg = self.win_game(status_cost)
+            else:
+                self.inc_user_count()
 
         return dict(error=False, img=pil2b64(background), msg=ret_msg)
