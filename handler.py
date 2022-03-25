@@ -176,7 +176,7 @@ class HandGuess:
         blue = MahjongImage(TilebackType.blue)
         orange = MahjongImage(TilebackType.orange)
         no_color = MahjongImage(TilebackType.no_color)
-
+        original_win_tile_code = TC.one_line_string_to_136_array(self.status.hand.win_tile)[0]
         # 手牌
         hand_img = Image.new("RGB", (80 * 13, 130), "#6c6c6c")
         for index, tile in enumerate(current_tiles):
@@ -187,7 +187,7 @@ class HandGuess:
             if tile == original:
                 # 如果位置正确
                 easy_paste(hand_img, blue.tile(ascii_tile), pos)
-            elif tile in self.status.hand.tiles + [win_tile]:
+            elif tile in self.status.hand.tiles + [original_win_tile_code]:
                 # 如果存在
                 easy_paste(hand_img, orange.tile(ascii_tile), pos)
             else:
