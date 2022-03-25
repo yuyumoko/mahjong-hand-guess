@@ -70,7 +70,7 @@ class HandGuess:
     __slots__ = ["qq", "group"]
 
     MAX_GUESS = 6  # 每人最大猜测次数
-    TIMEOUT = 5 * 60  # 一局结束超时时间
+    TIMEOUT = 10 * 60  # 一局结束超时时间
 
     def __init__(self, qq: int, group: int):
         self.qq = qq
