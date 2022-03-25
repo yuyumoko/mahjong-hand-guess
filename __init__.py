@@ -37,8 +37,8 @@ async def on_input_chara_name(bot, ev):
 
     if hg.is_start():
         res = await hg.guesses_handler(msg)
-        if res["img"]:
+        if res.get("img"):
             await bot.send(ev, MessageSegment.image(res["img"]), at_sender=True)
 
-        if res["msg"]:
+        if res.get("msg"):
             await bot.send(ev, res["msg"], at_sender=True)

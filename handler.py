@@ -135,6 +135,7 @@ class HandGuess:
         return f"恭喜你, 猜对了, 积分增加 {points} 点, 当前积分 {user.points}"
 
     async def guesses_handler(self, msg: str):
+        msg = msg.strip().replace(' ', '')
         # pass不合法的信息
         if re.search(f"[^\dmpszh{''.join(TileMap)}]", msg):
             return dict(error=True, msg="")
