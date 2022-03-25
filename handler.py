@@ -180,7 +180,7 @@ class HandGuess:
             if tile == original:
                 # 如果位置正确
                 easy_paste(hand_img, blue.tile(ascii_tile), pos)
-            elif tile in self.status.hand.tiles:
+            elif tile in self.status.hand.tiles + [win_tile]:
                 # 如果存在
                 easy_paste(hand_img, orange.tile(ascii_tile), pos)
             else:
