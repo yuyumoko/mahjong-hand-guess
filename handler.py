@@ -31,8 +31,10 @@ class TileAsciiMap(Enum):
 
 TileMap = ["万", "筒", "索", "东", "南", "西", "北", "白", "发", "中"]
 
-
-HandResult = namedtuple("HandResult", "tiles win_tile tsumo result raw hand_index")
+HandSplit = namedtuple("HandSplit", "man pin sou honors")
+HandResult = namedtuple(
+    "HandResult", "tiles tiles_ascii win_tile tsumo result raw hand_index"
+)
 
 
 async def get_hand(hand_index=None, **kwargs) -> HandResult:
@@ -56,8 +58,9 @@ async def get_hand(hand_index=None, **kwargs) -> HandResult:
     )
 
     tiles = TC.one_line_string_to_136_array(hand_raw[:26])
+    tiles_ascii = HandGuess.format_split_hand(hand_raw[:26])
 
-    return HandResult(tiles, last_tile, tsumo, result, raw, hand_index)
+    return HandResult(tiles, tiles_ascii, last_tile, tsumo, result, raw, hand_index)
 
 
 UserState = namedtuple("UserState", "hit_count")
@@ -69,7 +72,7 @@ HandGuessProcess = defaultdict(lambda: GroupState(False, None, {}))
 class HandGuess:
     __slots__ = ["qq", "group"]
 
-    MAX_GUESS = 6  # 每人最大猜测次数
+    MAX_GUESS = 10  # 每人最大猜测次数
     TIMEOUT = 10 * 60  # 一局结束超时时间
 
     def __init__(self, qq: int, group: int):
@@ -122,6 +125,25 @@ class HandGuess:
             hand = hand[:-2] + hand[-1] + hand[-2:]
         return hand
 
+    @staticmethod
+    def format_split_hand(hand: str):
+        split_start = 0
+        result = ""
+        for index, i in enumerate(hand):
+            if i == "m":
+                result += "m".join(hand[split_start:index]) + "m"
+                split_start = index + 1
+            if i == "p":
+                result += "p".join(hand[split_start:index]) + "p"
+                split_start = index + 1
+            if i == "s":
+                result += "s".join(hand[split_start:index]) + "s"
+                split_start = index + 1
+            if i == "z" or i == "h":
+                result += "z".join(hand[split_start:index]) + "z"
+                split_start = index + 1
+        return [result[i * 2 : i * 2 + 2] for i in range(int(len(result) / 2))]
+
     def inc_user_count(self):
         info = self.status.users[self.qq]
         count = info.hit_count + 1
@@ -171,41 +193,38 @@ class HandGuess:
         if result.han == 0:
             return dict(error=True, msg="你无役了")
 
-        current_tiles = TC.one_line_string_to_136_array(msg_hand[:-2])
+        current_tiles = HandGuess.format_split_hand(msg_hand[:-2])
 
         blue = MahjongImage(TilebackType.blue)
         orange = MahjongImage(TilebackType.orange)
         no_color = MahjongImage(TilebackType.no_color)
-        original_win_tile_code = TC.one_line_string_to_136_array(self.status.hand.win_tile)[0]
+
         # 手牌
         hand_img = Image.new("RGB", (80 * 13, 130), "#6c6c6c")
         for index, tile in enumerate(current_tiles):
-
-            original = self.status.hand.tiles[index]
-            ascii_tile = TC.to_one_line_string([tile])
+            ascii_tile = self.status.hand.tiles_ascii[index]
             pos = (index * 80, 0)
-            if tile == original:
+            if tile == ascii_tile:
                 # 如果位置正确
-                easy_paste(hand_img, blue.tile(ascii_tile), pos)
-            elif tile in self.status.hand.tiles + [original_win_tile_code]:
+                easy_paste(hand_img, blue.tile(tile), pos)
+            elif tile in self.status.hand.tiles_ascii + [self.status.hand.win_tile]:
                 # 如果存在
-                easy_paste(hand_img, orange.tile(ascii_tile), pos)
+                easy_paste(hand_img, orange.tile(tile), pos)
             else:
                 # 否则不存在
-                easy_paste(hand_img, no_color.tile(ascii_tile), pos)
+                easy_paste(hand_img, no_color.tile(tile), pos)
 
         # 胡牌
         wind_img = Image.new("RGB", (80, 130), "#6c6c6c")
         pos = (0, 0)
-        ascii_tile = TC.to_one_line_string([win_tile])
         if msg_win_tile == self.status.hand.win_tile:
-            easy_paste(wind_img, blue.tile(ascii_tile), pos)
-        elif win_tile in self.status.hand.tiles:
+            easy_paste(wind_img, blue.tile(msg_win_tile), pos)
+        elif msg_win_tile in self.status.hand.tiles_ascii:
             # 如果存在
-            easy_paste(wind_img, orange.tile(ascii_tile), pos)
+            easy_paste(wind_img, orange.tile(msg_win_tile), pos)
         else:
             # 否则不存在
-            easy_paste(wind_img, no_color.tile(ascii_tile), pos)
+            easy_paste(wind_img, no_color.tile(msg_win_tile), pos)
 
         # 役提示
         yaku = [x for x in self.status.hand.result.yaku if x.yaku_id not in [0, 1]]
