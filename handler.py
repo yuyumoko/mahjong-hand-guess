@@ -200,13 +200,17 @@ class HandGuess:
 
         # 手牌
         hand_img = Image.new("RGB", (80 * 13, 130), "#6c6c6c")
+        group_tiles_box = self.status.hand.tiles_ascii + [self.status.hand.win_tile]
+
         for index, tile in enumerate(current_tiles):
             ascii_tile = self.status.hand.tiles_ascii[index]
             pos = (index * 80, 0)
             if tile == ascii_tile:
+                group_tiles_box.remove(tile)
                 # 如果位置正确
                 easy_paste(hand_img, blue.tile(tile), pos)
-            elif tile in self.status.hand.tiles_ascii + [self.status.hand.win_tile]:
+            elif tile in group_tiles_box:
+                tile in group_tiles_box and group_tiles_box.remove(tile)
                 # 如果存在
                 easy_paste(hand_img, orange.tile(tile), pos)
             else:
