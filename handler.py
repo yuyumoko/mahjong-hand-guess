@@ -150,8 +150,7 @@ class HandGuess:
         self.status.users[self.qq] = info._replace(hit_count=count)
 
     def is_win(self, tiles: list):
-        wind_tile = TC.one_line_string_to_136_array(self.status.hand.win_tile)
-        set_tiles = self.status.hand.tiles + wind_tile
+        set_tiles = self.status.hand.tiles_ascii + [self.status.hand.win_tile]
         return set_tiles == tiles
 
     def win_game(self, points: int):
@@ -267,7 +266,7 @@ class HandGuess:
 
         ret_msg = ""
         if not only_answer:
-            if self.is_win(current_tiles + [win_tile]):
+            if self.is_win(current_tiles + [msg_win_tile]):
                 ret_msg = self.win_game(status_cost)
             else:
                 self.inc_user_count()
