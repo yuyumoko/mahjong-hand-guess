@@ -20,10 +20,19 @@ class User:
     def points(self):
         return self.get_info().points
 
+    def save(self, **kwargs):
+        UserDb[self.user_id] = UserInfo(**kwargs)._asdict()
+
+    def sub_points(self, points):
+        info = self.get_info()
+        assert info.points >= points
+        end_points = info.points - points
+        self.save(points=end_points)
+
     def add_points(self, points):
         info = self.get_info()
         end_points = info.points + points
-        UserDb[self.user_id] = UserInfo(points=end_points)._asdict()
+        self.save(points=end_points)
 
     @staticmethod
     def points_rank():

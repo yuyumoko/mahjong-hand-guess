@@ -70,14 +70,18 @@ HandGuessProcess = defaultdict(lambda: GroupState(False, None, {}))
 
 
 class HandGuess:
-    __slots__ = ["qq", "group"]
+    __slots__ = ["qq", "group", "user"]
 
-    MAX_GUESS = 10  # 每人最大猜测次数
+    MAX_GUESS = 6  # 每人最大猜测次数
+    GUESS_DEDUCT_POINTS = 1000  # 超出每回扣除的积分
+    SHOW_WIN_TILE_POINTS = 2000  # 查看胡牌扣除积分
+
     TIMEOUT = 10 * 60  # 一局结束超时时间
 
     def __init__(self, qq: int, group: int):
         self.qq = qq
         self.group = group
+        self.user = User(self.qq)
 
     @property
     def status(self) -> GroupState:
@@ -156,20 +160,40 @@ class HandGuess:
     def win_game(self, points: int):
         self.reset_game()
         cancel_call_later("HandGuessGame")
-        user = User(self.qq)
-        user.add_points(points)
-        return f"恭喜你, 猜对了, 积分增加 {points} 点, 当前积分 {user.points}"
+        self.user.add_points(points)
+        return f"恭喜你, 猜对了, 积分增加 {points} 点, 当前积分 {format(self.user.points, ',')}"
+
+    def is_show_win_tile_msg(self, msg: str):
+        if msg != "查看和牌":
+            return dict(error=True)
+        if self.user.points < self.SHOW_WIN_TILE_POINTS:
+            return dict(error=False, msg=f"你的积分({self.user.points})不足", img=None)
+
+        self.user.sub_points(self.SHOW_WIN_TILE_POINTS)
+        blue = MahjongImage(TilebackType.blue)
+        return dict(
+            error=False, img=pil2b64(blue.tile(self.status.hand.win_tile)), msg=""
+        )
 
     async def guesses_handler(self, msg: str, only_answer=False):
         msg = (msg, self.status.hand.raw)[only_answer]
-
         msg = msg.strip().replace(" ", "")
+
+        show_win_tile = self.is_show_win_tile_msg(msg)
+        if not show_win_tile["error"]:
+            return dict(error=False, img=show_win_tile["img"], msg=show_win_tile["msg"])
+
         # pass不合法的信息
         if re.search(f"[^\dmpszh{''.join(TileMap)}]", msg):
             return dict(error=True, msg="")
 
+        use_deduct_points = False
         if self.status.users[self.qq].hit_count >= self.MAX_GUESS:
-            return dict(error=True, msg="你已经没有次数了!")
+            if self.user.points < self.GUESS_DEDUCT_POINTS:
+                return dict(error=True, msg=f"你的积分({self.user.points})不足")
+            else:
+                use_deduct_points = True
+                self.user.sub_points(self.GUESS_DEDUCT_POINTS)
 
         msg_hand = HandGuess.format_hand_msg(msg)
         msg_win_tile = msg_hand[-2:]
@@ -214,13 +238,16 @@ class HandGuess:
             else:
                 # 否则不存在
                 easy_paste(hand_img, no_color.tile(tile), pos)
-                
+
             tile in group_tiles_box and group_tiles_box.remove(tile)
 
         # 胡牌
         wind_img = Image.new("RGB", (80, 130), "#6c6c6c")
         pos = (0, 0)
-        if msg_win_tile == self.status.hand.win_tile and msg_win_tile in group_tiles_box:
+        if (
+            msg_win_tile == self.status.hand.win_tile
+            and msg_win_tile in group_tiles_box
+        ):
             easy_paste(wind_img, blue.tile(msg_win_tile), pos)
         elif msg_win_tile in self.status.hand.tiles_ascii:
             # 如果存在
@@ -247,9 +274,28 @@ class HandGuess:
         background = Image.new("RGB", (1200, 400), "#EEEEEE")
 
         if not only_answer:
-            last = self.MAX_GUESS - self.status.users[self.qq].hit_count - 1
+            if use_deduct_points:
+                draw_text_by_line(
+                    background,
+                    (26.5, 25),
+                    f"-1000 ({format(self.user.points, ',')})",
+                    get_font(30),
+                    "#475463",
+                    255,
+                )
+            else:
+                last = self.MAX_GUESS - self.status.users[self.qq].hit_count - 1
+                draw_text_by_line(
+                    background, (26.5, 25), f"剩余{last}回", get_font(40), "#475463", 255
+                )
+
             draw_text_by_line(
-                background, (26.5, 25), f"剩余{last}回", get_font(40), "#475463", 255
+                background,
+                (26.5, 70),
+                f"超出每回扣除{self.GUESS_DEDUCT_POINTS}积分",
+                get_font(30, "65"),
+                "#475463",
+                800,
             )
 
         draw_text_by_line(
@@ -257,12 +303,21 @@ class HandGuess:
         )
         draw_text_by_line(
             background,
-            (194.5, 122),
+            (194.5, 130),
             han_tip,
             get_font(40),
             "#475463",
             1200,
             True,
+        )
+
+        draw_text_by_line(
+            background,
+            (900, 25),
+            f"支付{self.SHOW_WIN_TILE_POINTS}点[查看和牌]",
+            get_font(25),
+            "#475463",
+            500,
         )
 
         easy_paste(background, hand_img.convert("RGBA"), (30, 226))
