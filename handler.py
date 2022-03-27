@@ -205,22 +205,22 @@ class HandGuess:
         for index, tile in enumerate(current_tiles):
             ascii_tile = self.status.hand.tiles_ascii[index]
             pos = (index * 80, 0)
-            if tile == ascii_tile:
-                group_tiles_box.remove(tile)
+            if tile == ascii_tile and tile in group_tiles_box:
                 # 如果位置正确
                 easy_paste(hand_img, blue.tile(tile), pos)
             elif tile in group_tiles_box:
-                tile in group_tiles_box and group_tiles_box.remove(tile)
                 # 如果存在
                 easy_paste(hand_img, orange.tile(tile), pos)
             else:
                 # 否则不存在
                 easy_paste(hand_img, no_color.tile(tile), pos)
+                
+            tile in group_tiles_box and group_tiles_box.remove(tile)
 
         # 胡牌
         wind_img = Image.new("RGB", (80, 130), "#6c6c6c")
         pos = (0, 0)
-        if msg_win_tile == self.status.hand.win_tile:
+        if msg_win_tile == self.status.hand.win_tile and msg_win_tile in group_tiles_box:
             easy_paste(wind_img, blue.tile(msg_win_tile), pos)
         elif msg_win_tile in self.status.hand.tiles_ascii:
             # 如果存在
