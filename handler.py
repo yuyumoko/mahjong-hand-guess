@@ -188,7 +188,7 @@ class HandGuess:
             return dict(error=True, msg="")
 
         use_deduct_points = False
-        if self.status.users[self.qq].hit_count >= self.MAX_GUESS:
+        if self.status.users[self.qq].hit_count >= self.MAX_GUESS and not only_answer:
             if self.user.points < self.GUESS_DEDUCT_POINTS:
                 return dict(error=True, msg=f"你的积分({self.user.points})不足")
             else:
